@@ -1,0 +1,197 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "resources": [
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2020-06-01",
+      "name": "Vnetwork",
+      "location": "eastus",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "10.0.0.0/16"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "Subnet",
+            "properties": {
+              "addressPrefix": "10.0.0.0/24"
+            }
+          }
+        ]
+      }
+    },
+	{
+      "type": "Microsoft.Network/loadBalancers",
+      "apiVersion": "2018-06-01",
+      "name": "LoadBalancer",
+      "location": "East US",
+      "properties": {
+        "frontendIPConfigurations": [
+          {
+            "name": "LoadBalancerFrontEnd",
+            "properties": {
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'Vnetwork', 'Subnet')]"
+              }
+            }
+          }
+        ],
+        "backendAddressPools": [
+          {
+            "name": "BackendPool"
+          }
+        ],
+        "loadBalancingRules": [
+          {
+            "name": "HTTPRule",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[resourceId('Microsoft.Network/loadBalancers/frontendIPConfigurations', 'LoadBalancer', 'LoadBalancerFrontEnd')]"
+              },
+              "backendAddressPool": {
+                "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', 'LoadBalancer', 'BackendPool')]"
+              },
+              "protocol": "Tcp",
+              "frontendPort": 80,
+              "backendPort": 80,
+              "enableFloatingIP": false,
+              "idleTimeoutInMinutes": 15,
+              "probe": {
+                "id": "[resourceId('Microsoft.Network/loadBalancers/probes', 'LoadBalancer', 'HttpProbe')]"
+              }
+            }
+          }
+        ],
+        "probes": [
+          {
+            "name": "HttpProbe",
+            "properties": {
+              "protocol": "Http",
+              "port": 80,
+              "requestPath": "/"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachineScaleSets",
+      "apiVersion": "2021-04-01",
+      "name": "Vmscaleset",
+      "location": "eastus",
+      "sku": {
+        "tier": "Standard",
+        "capacity": "2",
+        "name": "Standard_D1_v2"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', 'Vnetwork')]"
+      ],
+      "properties": {
+        "overprovision": true,
+        "upgradePolicy": {
+          "mode": "Automatic"
+        },
+        "virtualMachineProfile": {
+          "storageProfile": {
+            "imageReference": {
+              "publisher": "MicrosoftWindowsServer",
+              "offer": "WindowsServer",
+              "sku": "2019-Datacenter",
+              "version": "latest"
+            }
+          },
+          "osProfile": {
+            "computerNamePrefix": "vmss",
+            "adminUsername": "Kirk",
+            "adminPassword": "Toto123!"
+          },
+          "networkProfile": {
+            "networkInterfaceConfigurations": [
+              {
+                "name": "nic",
+                "properties": {
+                  "primary": true,
+                  "ipConfigurations": [
+                    {
+                      "name": "ipconfig",
+                      "properties": {
+                        "subnet": {
+                          "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'Vnetwork', 'Subnet')]"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "extensionProfile": {
+            "extensions": [
+              {
+                "name": "CustomScriptExtension",
+                "properties": {
+                  "publisher": "Microsoft.Compute",
+                  "type": "CustomScriptExtension",
+                  "typeHandlerVersion": "1.10",
+                  "autoUpgradeMinorVersion": true,
+                  "settings": {
+                    "commandToExecute": "powershell -ExecutionPolicy Unrestricted -Command \"Install-WindowsFeature -name Web-Server -IncludeManagementTools; $indexPath = 'C:\\inetpub\\wwwroot\\index.html'; $indexContent = '<html><head><title>Hello World</title></head><body><h1>Hello World!</h1></body></html>'; Set-Content -Path $indexPath -Value $indexContent;\""
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+	{
+      "type": "Microsoft.Sql/servers",
+      "apiVersion": "2019-06-01-preview",
+      "name": "MyUniqueSqlServer",
+      "location": "East US",
+      "properties": {
+        "administratorLogin": "sqladmin",
+        "administratorLoginPassword": "YourPassword123!"
+      },
+      "resources": [
+        {
+          "type": "databases",
+          "apiVersion": "2019-06-01-preview",
+          "name": "FirstDatabase",
+          "location": "East US",
+          "dependsOn": [
+            "[resourceId('Microsoft.Sql/servers', 'MyUniqueSqlServer')]"
+          ],
+          "properties": {
+            "collation": "SQL_Latin1_General_CP1_CI_AS",
+            "edition": "Basic",
+            "maxSizeBytes": "1073741824",
+            "requestedServiceObjectiveName": "Basic",
+            "sampleName": "AdventureWorksLT",
+            "zoneRedundant": false
+          }
+        },
+		{
+  "type": "databases",
+  "apiVersion": "2019-06-01-preview",
+  "name": "SecondDatabase",
+  "location": "East US",
+  "dependsOn": [
+    "[resourceId('Microsoft.Sql/servers', 'MyUniqueSqlServer')]"
+  ],
+  "properties": {
+    "collation": "SQL_Latin1_General_CP1_CI_AS",
+    "edition": "Basic",
+    "maxSizeBytes": "1073741824",
+    "requestedServiceObjectiveName": "Basic",
+    "zoneRedundant": false
+  }
+}
+      ]
+    }
+  ]
+}

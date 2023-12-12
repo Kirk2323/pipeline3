@@ -1,0 +1,19 @@
+trigger:
+
+- main
+
+pool:
+  vmImage: 'windows-latest'
+
+steps:
+
+- task: AzureResourceGroupDeployment@2
+  inputs:
+    azureSubscription: '9fd969fb-df38-4226-b2c1-950edcde308f'
+    action: 'Create Or Update Resource Group'
+    resourceGroupName: 'test'
+    location: 'eastus'
+    templateLocation: 'Linked artifact'
+    csmFile: 'template.json'
+    deploymentMode: 'Incremental'
+    
